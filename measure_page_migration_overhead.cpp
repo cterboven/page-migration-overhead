@@ -20,6 +20,18 @@ int main(int argc, char* argv[])
     int p = atoi(argv[2]);
     int x = atoi(argv[3]);
     int y = atoi(argv[4]);
+
+    int stdps = getpagesize();
+    if (p < stdps)
+    {
+	    p = stdps;
+	    std::cout << "Warning: increased p to page size." << std::endl;
+    }
+
+    if (p > stdps)
+    {
+	    std::cout << "Warning: large pages not yet supported, decreased p to page size." << std::endl;
+    }
     
     std::cout << "measure_page_migration_overhead: " << n << " pages of size " << p << " bytes to migrated from node " << x << " to node " << y << " ." << std::endl;
 
