@@ -5,6 +5,8 @@
 #include <numaif.h>
 #include <unistd.h>
 
+#include <sys/mman.h>
+
 #include <omp.h>
 
 
@@ -22,6 +24,7 @@ int main(int argc, char* argv[])
     int y = atoi(argv[4]);
 
     int stdps = getpagesize();
+    bool usehp = false;
     if (p < stdps)
     {
 	    p = stdps;
@@ -30,7 +33,10 @@ int main(int argc, char* argv[])
 
     if (p > stdps)
     {
-	    std::cout << "Warning: large pages not yet supported, decreased p to page size." << std::endl;
+	    usehp = true;
+	    std::cout << "Warning: numa placement for large pages not yet implemented." << std::endl;
+	    std::cout << "Warning: only 2 MB large pages implemented." << std::endl;
+	    p = 1 << 21;
     }
     
     std::cout << "measure_page_migration_overhead: " << n << " pages of size " << p << " bytes to migrated from node " << x << " to node " << y << " ." << std::endl;
@@ -42,7 +48,31 @@ int main(int argc, char* argv[])
     // initialize pointer array
     for (int i = 0; i < n; i++)
     {
-        pointers[i] = numa_alloc_onnode(p, x);
+	    if (usehp)
+	    {
+		    pointers[i] = nullptr;
+		    posix_memalign(&pointers[i], p, p);
+		    int err = madvise(pointers[i], p, MADV_HUGEPAGE);
+		    if (err != 0)
+		    {
+			    switch (errno)
+			    {
+				    case EAGAIN:
+					    std::cout << "Error EAGAIN: A kernel resource was temporarily unavailable." << std::endl;
+					    break;
+				    case EBADF:
+					    std::cout << "Error EBADF: The map exists, but the area maps something that isn't a file." << std::endl;
+					    break;
+				    case EINVAL:
+					    std::cout << "Error EINVAL: Invalid argument(s)." << std::endl;
+					    break;
+			    }
+		    }
+	    }
+	    else
+	    {
+        	pointers[i] = numa_alloc_onnode(p, x);
+	    }
         memset(pointers[i], 0, p);
     }
     
